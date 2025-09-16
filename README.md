@@ -1,5 +1,7 @@
 # Rain Prediction with LSTM
 
-- [x] DataIngestion
-- [x] DataTransformation
-- [x] ModelTrainer
+- [x] Data Ingestion
+- [x] Data Transformation
+- [x] Model Trainer
+- [ ] Predict Pipeline
+- [ ] Train Pipeline
