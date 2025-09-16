@@ -7,6 +7,9 @@ from src.Exception import CustomException
 import sys
 from sklearn.model_selection import train_test_split
 
+from  src.components.DataTransformation import DataTransformation
+from  src.components.ModelTrainer import ModelTrainer
+
 @dataclass
 class DataIngestionConfig():
     raw_data_dir:str = os.path.join("data","raw")
@@ -64,5 +67,9 @@ class DataIngestion:
 
 if __name__ == "__main__":
     obj = DataIngestion()
-    obj.init_data_ingestion()
-    
+    train_data,test_data=obj.init_data_ingestion()
+
+    data_transformation = DataTransformation()
+    X, y, X_test, y_test = data_transformation.initiate_data_transformation(train_data, test_data)
+    model = ModelTrainer()
+    model.initiate_model_trainer(X, y, X_test, y_test)
