@@ -104,7 +104,7 @@ We gratefully acknowledge the efforts and collaboration of our team members who 
 | **Tejas Bagul**    | [github.com/2013Tejas](https://github.com/2013Tejas)            | Data preprocessing, feature engineering, model experimentation, and ML pipeline integration.                |
 | **Suhas Kolhe**    | [github.com/suhaskolhe1](https://github.com/suhaskolhe1)        | Project architecture, modularization, pipeline development, logging/exception framework, and documentation. |
 | **Shruti Patil**   | [github.com/shrutipatil](https://github.com/shrutipatil-140104) | Dataset preparation, EDA, visualizations, and reporting.                                                    |
-| **Aditya Ambhore** | —                                                               | Model training support, hyperparameter tuning, and backend utilities.                                       |
+| **Aditya Ambhore** | [github.com/adityaambhore](https://github.com/AdityaAmbhore)                                                               | Model training support, hyperparameter tuning, and backend utilities.                                       |
 | **Ujwal Khairnar** | [github.com/ujwal2004](https://github.com/Ujwalkhairnar2004)                                                             | API integration, testing, and deployment assistance.                                                        |
 
 ---
