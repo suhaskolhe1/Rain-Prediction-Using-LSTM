@@ -1,0 +1,5 @@
+sequence_length = 30
+BATCH_SIZE = 32
+EPOCHS = 100
+VALIDATION_SPLIT = 0.1
+PATIENCE = 7    

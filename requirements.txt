@@ -2,11 +2,12 @@
 numpy
 pandas
 scikit-learn
-tensorflow
+tensorflow==2.10.1
 matplotlib
 flask
 joblib
 pydantic
+seaborn
 
 
 imblearn
