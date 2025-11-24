@@ -1,99 +1,112 @@
-from dataclasses import dataclass
 import os
+import sys
 import numpy as np
 import pandas as pd
-from sklearn.preprocessing import MinMaxScaler,LabelEncoder
-from sklearn.impute  import SimpleImputer
-from src.Exception import CustomException
-import sys
+from dataclasses import dataclass
+from sklearn.preprocessing import MinMaxScaler
+
 from src.logger import logging
-from imblearn.over_sampling import SMOTE
-from sklearn.model_selection import train_test_split
+from src.Exception import CustomException
+from src.Config import sequence_length
 
-from src.Config import SEQUENCE_LENGTH
-
-
-@dataclass 
+@dataclass
 class DataTransformationConfig:
-    preprocessor_obj_file_path = os.path.join("artifacts", "preprocessor.pkl")
-    label_encoder_obj_file_path = os.path.join("artifacts", "wind_encoder.pkl")
-
+    scaler_path: str = os.path.join("artifacts", "scaler.pkl")
+    target_scaler_path: str = os.path.join("artifacts", "target_scaler.pkl")
+ 
 
 
 class DataTransformation:
+
     def __init__(self):
         self.config = DataTransformationConfig()
         self.scaler = MinMaxScaler()
-        self.encoder = LabelEncoder()
-        self.imputer = SimpleImputer(strategy='mean')
+        self.target_scaler = MinMaxScaler()   
 
-    def create_sequences(self, X, y, seq_len=SEQUENCE_LENGTH):
+    def create_sequences(self, X, y, seq_len):
         """
-        Create fixed-length sequences for LSTM.
+        Convert continuous time-series into LSTM 3D sequences.
+        Example: use last 30 days to predict next day.
         """
-        X_seq = [X[i:i + seq_len] for i in range(len(X) - seq_len)]
-        y_seq = [y[i + seq_len] for i in range(len(X) - seq_len)]
+        X_seq, y_seq = [], []
+
+        for i in range(len(X) - seq_len):
+            X_seq.append(X[i:i + seq_len])
+            y_seq.append(y[i + seq_len])
+
         return np.array(X_seq), np.array(y_seq)
-    
-    def deg_to_compass(self,deg):
-        dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
-        ix = round(deg / 45) % 8
-        return dirs[ix]
-    
-    def initiate_data_transformation(self, train_path, test_path):
+
+    def init_data_transformation(self, X_train, y_train, X_test, y_test):
+        logging.info("DataTransformation: Transformation Started")
+
         try:
-            logging.info("Reading train and test data")
-            train_df = pd.read_csv(train_path)
-            test_df= pd.read_csv(test_path)
-
-            logging.info("Merging train and test for preprocessing consistency")
-
-            full_df = pd.concat([train_df, test_df], ignore_index=True)
-
-            features = ["tempmin","tempmax","winddir","windgust","humidity","sealevelpressure","temp"]
-            full_df = pd.DataFrame({
-                "tempmin" : full_df["tempmin"],
-                "tempmax" :full_df["tempmax"],
-                "winddir" : full_df["winddir"].apply(self.deg_to_compass),
-                "windgust" : full_df["windgust"],
-                "humidity" : full_df["humidity"],
-                "sealevelpressure" : full_df["sealevelpressure"],
-                "temp" : full_df["temp"],
-                "RainTomorrow" : full_df["precipprob"].apply(lambda x: "Yes" if x > 50 else "No"),
-           })
             
-            full_df.ffill(inplace=True)
-            full_df.bfill(inplace=True)
+            # 1. Convert all inputs to numpy
+           
+            X_train = np.array(X_train)
+            X_test = np.array(X_test)
+            y_train = np.array(y_train).reshape(-1, 1)
+            y_test = np.array(y_test).reshape(-1, 1)
 
-            full_df["winddir"] = self.encoder.fit_transform(full_df["winddir"].astype(str))
+            
+            # IMPORTANT FIX:
+            # Do NOT apply SMOTE.
+            # Do NOT oversample LSTM time-series data.
+            
 
-            full_df.dropna(subset=['RainTomorrow'], inplace=True)
-            features = ["tempmin","tempmax","winddir","windgust","humidity","sealevelpressure","temp"]
-            target = 'RainTomorrow'
+           
+            # 2. Scale features ONLY
+           
+            logging.info("Scaling feature data")
+            X_train_scaled = self.scaler.fit_transform(X_train)
+            X_test_scaled = self.scaler.transform(X_test)
 
-            X=full_df[features]
-            y=full_df[target]
+           
+            
+           
+            if len(np.unique(y_train)) > 2:     
+                logging.info("Target looks continuous → scaling applied")
+                y_train_scaled = self.target_scaler.fit_transform(y_train)
+                y_test_scaled = self.target_scaler.transform(y_test)
+            else:
+                logging.info("Target is classification → NOT scaling 0/1 labels")
+                y_train_scaled = y_train
+                y_test_scaled = y_test
 
-            X=pd.DataFrame(self.imputer.fit_transform(X),columns=features)
+            
+            # 4. Create sequences
+            
+            seq_len = sequence_length
+            logging.info(f"Creating LSTM sequences (window={seq_len})")
 
-            print("Original dataset shape:", y.shape)
-            print("Original dataset distribution:\n", pd.Series(y).value_counts())
-            smote = SMOTE(random_state=42)
-            X_resampled, y_resampled = smote.fit_resample(X, y)
-            print("\nResampled dataset shape:", y_resampled.shape)
-            print("Resampled dataset distribution:\n", pd.Series(y_resampled).value_counts())
+            X_train_seq, y_train_seq = self.create_sequences(
+                X_train_scaled, y_train_scaled, seq_len
+            )
 
-            X_scaled = self.scaler.fit_transform(X_resampled)
+            X_test_seq, y_test_seq = self.create_sequences(
+                X_test_scaled, y_test_scaled, seq_len
+            )
 
-            X_seq, y_seq = self.create_sequences(X_scaled, y_resampled.values)
+            logging.info(f"LSTM Train Shape = {X_train_seq.shape}")
+            logging.info(f"LSTM Test Shape  = {X_test_seq.shape}")
 
-            X_train, X_test, y_train, y_test = train_test_split(X_seq, y_seq, test_size=0.2, random_state=42, shuffle=True, stratify=y_seq)
-            return X_train, y_train, X_test, y_test
+           
+            # 5. Save Scalers
+            
+            import joblib
+            os.makedirs("artifacts", exist_ok=True)
+            joblib.dump(self.scaler, self.config.scaler_path)
+            joblib.dump(self.target_scaler, self.config.target_scaler_path)
 
+            logging.info("Scalers saved successfully")
 
+            
+            # 6. Return outputs
+            
+            return (
+                X_train_seq, y_train_seq,
+                X_test_seq, y_test_seq
+            )
 
         except Exception as e:
             raise CustomException(e, sys)
-
-
-

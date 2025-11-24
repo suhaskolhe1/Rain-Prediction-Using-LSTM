@@ -1,75 +1,81 @@
-
 from dataclasses import dataclass
 import os
 import pandas as pd
 from src.logger import logging
 from src.Exception import CustomException
 import sys
-from sklearn.model_selection import train_test_split
 
-from  src.components.DataTransformation import DataTransformation
-from  src.components.ModelTrainer import ModelTrainer
 
 @dataclass
-class DataIngestionConfig():
-    raw_data_dir:str = os.path.join("data","raw")
-    interim_data_path: str = os.path.join("data", "interim", "merged.csv")
-    train_data_path: str = os.path.join("data", "processed", "train.csv")
-    test_data_path: str = os.path.join("data", "processed", "test.csv")
+class DataIngestionConfig:
+    dataset_path: str = os.path.join("data", "interim", "cleaned.csv")
+    train_path: str = os.path.join("data","processed", "train.csv")
+    test_path: str = os.path.join("data","processed", "test.csv")
 
 
 class DataIngestion:
+
     def __init__(self):
-        self.ingestion_config = DataIngestionConfig()
+        self.config = DataIngestionConfig()
 
     def init_data_ingestion(self):
-        logging.info("DataIngestion:Data Ingestion Started")
+        logging.info("DataIngestion: Data Ingestion Started")
+
         try:
-            #Collect All Raw Files
-            all_files = [
-                os.path.join(self.ingestion_config.raw_data_dir,f)
-                for f in os.listdir(self.ingestion_config.raw_data_dir)
-                if f.endswith(".csv")
-            ]
-
-            logging.info(f"Found {len(all_files)} raw files")
-
-            df_list=[pd.read_csv(file) for file in all_files]
-            df=pd.concat(df_list,ignore_index=True)
-
-            logging.info("DataIngestion: All CSVs merged successfully")
-
-            ## 3. Save interim merged data
-            os.makedirs(os.path.dirname(self.ingestion_config.interim_data_path),exist_ok=True)
-            df.to_csv(self.ingestion_config.interim_data_path,index=False)
             
-            logging.info(f"Merged data saved at {self.ingestion_config.interim_data_path}")
+            # 1. Load dataset
+            
+            df = pd.read_csv(self.config.dataset_path)
+            logging.info(f"Data Loaded Successfully. Shape = {df.shape}")
 
-            logging.info("Train-test split initiated")
-            train_set, test_set = train_test_split(df, test_size=0.2, random_state=42)
+            
+            # 2. Sort by date (Important for LSTM)
+           
+            if {"year", "month", "day"}.issubset(df.columns):
+                df = df.sort_values(["year", "month", "day"]).reset_index(drop=True)
+                logging.info("Dataset Sorted by Year-Month-Day")
 
+            else:
+                logging.warning("Date columns missing: year, month, day")
 
-            os.makedirs(os.path.dirname(self.ingestion_config.train_data_path), exist_ok=True)
-            train_set.to_csv(self.ingestion_config.train_data_path, index=False)
-            test_set.to_csv(self.ingestion_config.test_data_path, index=False)
+            
+            # 3. Define  target
+            
+            
+            target_column = "precip"  
 
-            logging.info("Train and test sets saved in processed folder")
-            return (
-                self.ingestion_config.train_data_path,
-                self.ingestion_config.test_data_path,
-            )
+            if target_column not in df.columns:
+                raise CustomException(f"Target column '{target_column}' not found", sys)
+
+            X = df.drop(columns=[target_column])
+            y = df[target_column]
+
+            
+            # 4. Time-Series Split (NO SHUFFLE)
+            
+            split_idx = int(len(df) * 0.8)
+
+            X_train, y_train = X.iloc[:split_idx], y.iloc[:split_idx]
+            X_test, y_test = X.iloc[split_idx:], y.iloc[split_idx:]
+
+            logging.info("Time-Series Train-Test Split Completed")
+            logging.info(f"Train Shape: {X_train.shape}, Test Shape: {X_test.shape}")
+
+            
+            # 5. Save Split Data
+            
+            os.makedirs("artifacts", exist_ok=True)
+
+            train_df = pd.concat([X_train, y_train], axis=1)
+            test_df = pd.concat([X_test, y_test], axis=1)
+
+            train_df.to_csv(self.config.train_path, index=False)
+            test_df.to_csv(self.config.test_path, index=False)
+
+            logging.info("Train & Test Files Saved Successfully")
+
+            return (X_train, y_train, X_test, y_test)
 
         except Exception as e:
-            pass
-            raise CustomException(e,sys)
+            raise CustomException(e, sys)
 
-
-
-if __name__ == "__main__":
-    obj = DataIngestion()
-    train_data,test_data=obj.init_data_ingestion()
-
-    data_transformation = DataTransformation()
-    X, y, X_test, y_test = data_transformation.initiate_data_transformation(train_data, test_data)
-    model = ModelTrainer()
-    model.initiate_model_trainer(X, y, X_test, y_test)

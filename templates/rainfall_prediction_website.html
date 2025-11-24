@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Rain Prediction Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <script>
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            colors: {
+              card: "#0b1220",
+              glass: "rgba(255,255,255,0.06)",
+            },
+          },
+        },
+      };
+    </script>
+  </head>
+  <body
+    class="bg-slate-900 text-slate-100 min-h-screen p-6 transition-all duration-300"
+  >
+    <div class="max-w-6xl mx-auto">
+      <!-- HEADER -->
+      <header class="flex justify-between items-center mb-8">
+        <div>
+          <h1 class="text-3xl font-bold">🌧️ Rain Prediction Dashboard</h1>
+          <p class="text-slate-400">Machine Learning Based Weather Forecast</p>
+        </div>
+
+        <!-- DARK MODE TOGGLE -->
+        <button
+          onclick="toggleTheme()"
+          class="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 transition"
+        >
+          🌓 Toggle Theme
+        </button>
+      </header>
+
+      <!-- SUMMARY CARD -->
+      <div
+        class="bg-card rounded-xl p-6 shadow-xl hover:scale-[1.01] transition-all duration-300"
+      >
+        <div class="flex justify-between items-center">
+          <div>
+            <p class="text-xl font-semibold">Location: {{ location }}</p>
+            <p class="text-slate-400 text-sm">Updated: {{ timestamp }}</p>
+          </div>
+
+          <!-- Animated Gauge -->
+          <div class="relative w-32 h-32">
+            <svg class="w-full h-full" viewBox="0 0 36 36">
+              <path
+                class="text-slate-700"
+                stroke-width="3"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32"
+              />
+
+              <path
+                id="gaugePath"
+                class="text-blue-400 transition-all duration-700"
+                stroke-width="3"
+                stroke="currentColor"
+                fill="none"
+                stroke-dasharray="{{ (rain_prediction*100)*1.13 }}, 113"
+                d="M18 2a16 16 0 1 1 0 32a16 16 0 1 1 0-32"
+              />
+            </svg>
+            <p
+              class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-xl font-bold"
+            >
+              {{ (rain_prediction*100)|round(1) }}%
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- TODAY'S WEATHER GRID -->
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-8">
+        {% set stats = [ ('Temperature', api_data.temp ~ ' °C'), ('Feels Like',
+        api_data.feelslike), ('Humidity', api_data.humidity ~ '%'),
+        ('Visibility', api_data.visibility ~ ' km'), ('Wind Speed',
+        api_data.windspeed ~ ' km/h'), ('Cloud Cover', api_data.cloudcover ~
+        '%') ] %} {% for label, value in stats %}
+        <div
+          class="bg-card p-5 rounded-xl shadow hover:scale-[1.03] hover:shadow-2xl transition-all duration-300"
+        >
+          <p class="text-slate-400 text-sm">{{ label }}</p>
+          <p class="text-2xl font-bold">{{ value }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- FORECAST SECTION -->
+      <div
+        class="bg-card rounded-xl p-6 shadow-xl mt-10 hover:scale-[1.01] transition-all duration-300"
+      >
+        <h2 class="text-2xl font-semibold mb-4">📅 7-Day Forecast</h2>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {% for day in forecast %}
+          <div
+            class="flex justify-between bg-slate-800 p-4 rounded-lg hover:bg-slate-700 transition-all duration-300"
+          >
+            <p class="text-slate-300">{{ day.datetime }}</p>
+            <p class="font-bold">{{ day.temp }} °C</p>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+
+      <footer class="text-center text-slate-500 mt-10 text-sm">
+        Rain Prediction System • LSTM Model • Tailwind Enhanced
+      </footer>
+    </div>
+
+    <script>
+      function toggleTheme() {
+        document.documentElement.classList.toggle("dark");
+      }
+    </script>
+  </body>
+</html>
